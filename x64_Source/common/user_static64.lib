@@ -1,0 +1,85 @@
+;user_static64.lib:用户程序使用的例程库，用来模拟高级语言的静态库。有些功能直接在本文件
+;中实现，但有些功能需要通过syscall指令使用内核提供的系统调用。
+;创建时间：2022-01-30 18:30，李忠
+;此文件需要用预处理指令%include引入用户程序。
+
+;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+         bits 64
+;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+bin64_to_dec:                                     ;将二进制数转换为十进制字符串。
+                                                  ;输入：R8=64位二进制数
+                                                  ;      RBX=目标缓冲区线性地址
+         push rax
+         push rbx
+         push rcx
+         push rdx
+         push r8
+
+         bt r8, 63
+         jnc .begin
+         mov byte [rbx], '-'
+         neg r8
+         inc rbx
+  .begin:
+         mov rax, r8                              ;!!
+         mov r8, 10
+         xor rcx, rcx
+
+  .next_div:
+         xor rdx, rdx
+         div r8
+         push rdx                                 ;保存分解的数位
+         inc rcx                                  ;递增压栈的次数
+         or rax, rax                              ;商为0？
+         jz .rotate
+         jmp .next_div
+
+  .rotate:
+         pop rdx
+         add dl, 0x30                             ;数位转换成ASCII编码
+         mov [rbx], dl
+         inc rbx
+         loop .rotate
+
+         mov byte [rbx], 0
+
+         pop r8
+         pop rdx
+         pop rcx
+         pop rbx
+         pop rax
+
+         ret                                      ;段内返回
+
+;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+string_concatenates:                              ;将源字符串连接到目的字符串的尾部
+                                                  ;输入：RSI=源字符串的线性地址
+                                                  ;      RDI=目的字符串的线性地址
+         push rax
+         push rsi
+         push rdi
+
+  .r0:
+         cmp byte [rdi], 0
+         jz .r1
+         inc rdi
+         jmp .r0
+
+  .r1:
+         mov al, [rsi]
+         mov [rdi], al
+         cmp al, 0
+         jz .r2
+         inc rsi
+         inc rdi
+         jmp .r1
+
+  .r2:
+         pop rdi
+         pop rsi
+         pop rax
+
+         ret
+
+;~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
